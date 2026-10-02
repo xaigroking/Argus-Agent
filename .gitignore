@@ -1,0 +1,6 @@
+/dist/
+/argus
+*.db
+*.db-wal
+*.db-shm
+cover.out

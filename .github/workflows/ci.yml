@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          check-latest: true
+
+      - name: 格式检查
+        run: |
+          out=$(gofmt -l ./cmd ./internal)
+          if [ -n "$out" ]; then echo "以下文件未格式化:"; echo "$out"; exit 1; fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: 测试（含竞态检测）
+        run: go test -race -count=1 ./...
+
+      - name: 覆盖率
+        run: |
+          go test -coverprofile=cover.out ./internal/... >/dev/null
+          go tool cover -func=cover.out | tail -1
+
+  fuzz:
+    # 解析器处理被监控用户可控的内容，必须持续 fuzz。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Fuzz 解析器
+        run: |
+          go test ./internal/auditlog/ -run=Fuzz -fuzz=FuzzParseLine   -fuzztime=90s
+          go test ./internal/auditlog/ -run=Fuzz -fuzz=FuzzParseFields -fuzztime=60s
+      - name: 上传 fuzz 失败用例
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus
+          path: internal/auditlog/testdata/fuzz/
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: 交叉编译 linux/${{ matrix.goarch }}
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -trimpath -ldflags "-s -w" -o argus ./cmd/argus
+          file argus || true
+          ls -lh argus
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -s sh packaging/install.sh packaging/uninstall.sh
+
+  rules:
+    # 在真实 auditd 环境中校验规则文件语法。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: 安装 auditd
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq auditd
+      - name: 校验规则语法
+        run: |
+          go build -o argus ./cmd/argus
+          ./argus rules show > /tmp/50-argus.rules
+          # GitHub runner 无法加载规则（容器限制），但可校验语法
+          sudo auditctl -R /tmp/50-argus.rules 2>&1 | tee /tmp/out.txt || true
+          if grep -qiE 'syntax error|invalid|unknown (option|key)' /tmp/out.txt; then
+            echo "规则文件存在语法错误"; exit 1
+          fi
+          echo "规则语法检查通过"

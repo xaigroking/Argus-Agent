@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Argus — 主机行为审计</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e3e3e3;--card:#fafafa;--warn:#8a5a00;--warnbg:#fff8e6;--accent:#0b5fa5}
+@media (prefers-color-scheme:dark){:root{--bg:#141516;--fg:#e8e8e8;--mut:#9a9a9a;--line:#2e3033;--card:#1c1e20;--warn:#f0c14b;--warnbg:#2a2415;--accent:#6ab3f0}}
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:var(--bg);color:var(--fg);
+ font:14px/1.5 ui-sans-serif,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans SC",sans-serif}
+h1{font-size:18px;margin:0 0 2px} h2{font-size:14px;margin:22px 0 8px;color:var(--mut);font-weight:600}
+.sub{color:var(--mut);font-size:12px;margin-bottom:14px}
+.warn{background:var(--warnbg);color:var(--warn);border:1px solid currentColor;border-radius:6px;padding:9px 12px;margin:12px 0;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:6px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+.tile .n{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .l{font-size:11px;color:var(--mut)}
+table{width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top;
+ overflow-wrap:anywhere;word-break:break-word}
+th{color:var(--mut);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+tr:last-child td{border-bottom:none}
+code{font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.tag{display:inline-block;padding:0 6px;border-radius:9px;background:var(--card);
+ border:1px solid var(--line);font-size:11px;white-space:nowrap}
+.mut{color:var(--mut)} .empty{color:var(--mut);padding:10px 0;font-size:13px}
+form{margin:10px 0 4px} select,input,button{font:inherit;padding:3px 6px;
+ border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg)}
+a{color:var(--accent)}
+.wrap{max-width:1180px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>Argus — 主机行为审计</h1>
+<div class="sub">
+  数据来自内核审计子系统，不依赖被监控程序的自述 ·
+  生成于 {{ fmtTime .Now }}
+</div>
+
+{{if .Warn}}<div class="warn">{{ .Warn }}</div>{{end}}
+
+<form method="get">
+  时间范围
+  <select name="hours">
+    <option value="1"{{if eq .Hours 1}} selected{{end}}>最近 1 小时</option>
+    <option value="24"{{if eq .Hours 24}} selected{{end}}>最近 24 小时</option>
+    <option value="168"{{if eq .Hours 168}} selected{{end}}>最近 7 天</option>
+    <option value="720"{{if eq .Hours 720}} selected{{end}}>最近 30 天</option>
+  </select>
+  归因 <input type="text" name="label" value="{{ .Label }}" placeholder="如 claude-code" size="14">
+  <button type="submit">查看</button>
+  {{if or .Label (ne .AUID -1)}} <a href="/?hours={{.Hours}}">清除筛选</a>{{end}}
+</form>
+
+<div class="grid">
+  <div class="tile"><div class="n">{{ .Stats.Events }}</div><div class="l">事件总数</div></div>
+  <div class="tile"><div class="n">{{ .Stats.Execs }}</div><div class="l">执行记录</div></div>
+  <div class="tile"><div class="n">{{ .Stats.Sessions }}</div><div class="l">登录会话</div></div>
+  <div class="tile"><div class="n">{{ .Stats.UnsetAUID }}</div><div class="l">无法归因（auid unset）</div></div>
+</div>
+
+<h2>按归因来源</h2>
+{{if .Labels}}
+<table><tr><th style="width:60%">来源</th><th class="num">执行次数</th></tr>
+{{range .Labels}}<tr>
+  <td><a href="/?hours={{$.Hours}}&amp;label={{.Name}}"><span class="tag">{{ .Name }}</span></a></td>
+  <td class="num">{{ .Count }}</td>
+</tr>{{end}}</table>
+{{else}}<div class="empty">该时间范围内没有数据。</div>{{end}}
+
+<h2>按用户（auid）</h2>
+{{if .Users}}
+<table><tr><th style="width:60%">auid</th><th class="num">执行次数</th></tr>
+{{range .Users}}<tr><td>{{ .Name }}</td><td class="num">{{ .Count }}</td></tr>{{end}}</table>
+{{else}}<div class="empty">无数据。</div>{{end}}
+
+<h2>高频程序</h2>
+{{if .TopCmds}}
+<table><tr><th style="width:70%">程序</th><th class="num">次数</th></tr>
+{{range .TopCmds}}<tr><td><code>{{ .Name }}</code></td><td class="num">{{ .Count }}</td></tr>{{end}}</table>
+{{else}}<div class="empty">无数据。</div>{{end}}
+
+<h2>执行记录{{if .Label}}（{{ .Label }}）{{end}}</h2>
+{{if .Execs}}
+<table>
+<tr><th style="width:11%">时间</th><th style="width:7%">auid</th><th style="width:13%">来源</th><th>命令</th></tr>
+{{range .Execs}}<tr>
+  <td class="num mut">{{ fmtTime .TS }}</td>
+  <td class="num">{{ auid .AUID }}</td>
+  <td><span class="tag">{{ .Label }}</span></td>
+  <td><code>{{ .Argv }}</code>{{if .CWD}}<div class="mut">cwd: {{ .CWD }}</div>{{end}}</td>
+</tr>{{end}}</table>
+{{else}}<div class="empty">该时间范围内没有执行记录。</div>{{end}}
+
+<h2>受监控文件的访问</h2>
+{{if .Files}}
+<table>
+<tr><th style="width:11%">时间</th><th style="width:7%">auid</th><th style="width:13%">来源</th>
+    <th style="width:14%">规则</th><th>路径</th></tr>
+{{range .Files}}<tr>
+  <td class="num mut">{{ fmtTime .TS }}</td>
+  <td class="num">{{ auid .AUID }}</td>
+  <td><span class="tag">{{ .Label }}</span></td>
+  <td class="mut">{{ .Key }}</td>
+  <td>{{range lines .Paths}}<div><code>{{ . }}</code></div>{{end}}</td>
+</tr>{{end}}</table>
+{{else}}<div class="empty">无记录。</div>{{end}}
+
+<h2>登录会话</h2>
+{{if .Sessions}}
+<table>
+<tr><th style="width:11%">开始</th><th style="width:11%">结束</th><th style="width:8%">auid</th>
+    <th style="width:8%">会话</th><th>来源地址</th><th style="width:14%">终端</th><th style="width:9%">结果</th></tr>
+{{range .Sessions}}<tr>
+  <td class="num mut">{{ fmtTime .Start }}</td>
+  <td class="num mut">{{ fmtTime .End }}</td>
+  <td class="num">{{ auid .AUID }}</td>
+  <td class="num">{{ .SES }}</td>
+  <td><code>{{ .Addr }}</code></td>
+  <td><code>{{ .Terminal }}</code></td>
+  <td>{{ .Result }}</td>
+</tr>{{end}}</table>
+{{else}}<div class="empty">无会话记录。</div>{{end}}
+
+<h2 style="margin-top:28px">说明</h2>
+<div class="sub">
+  看不到：shell 内置命令（<code>cd</code>、<code>export</code> 不走 execve）、脚本内部逻辑、终端原始输入、访问的域名。<br>
+  归因为 <span class="tag">unknown</span> 表示无法确定来源——进程血缘断裂时宁可标记未知，也不猜测。
+</div>
+
+</div></body></html>

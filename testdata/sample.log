@@ -1,0 +1,23 @@
+type=SYSCALL msg=audit(1700000000.123:1001): arch=c000003e syscall=59 success=yes exit=0 a0=55f8c0a0b0c0 a1=55f8c0a0b100 a2=55f8c0a0b140 a3=8 items=2 ppid=2000 pid=2001 auid=1000 uid=1000 gid=1000 euid=1000 suid=1000 fsuid=1000 egid=1000 sgid=1000 fsgid=1000 tty=pts0 ses=3 comm="ls" exe="/usr/bin/ls" subj=unconfined key="argus_exec"
+type=EXECVE msg=audit(1700000000.123:1001): argc=2 a0="ls" a1="-la"
+type=CWD msg=audit(1700000000.123:1001): cwd="/home/alice"
+type=PATH msg=audit(1700000000.123:1001): item=0 name="/usr/bin/ls" inode=1234 dev=08:01 mode=0100755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL
+type=PROCTITLE msg=audit(1700000000.123:1001): proctitle=6C73002D6C61
+type=EOE msg=audit(1700000000.123:1001): 
+type=SYSCALL msg=audit(1700000001.000:1002): arch=c000003e syscall=59 success=yes exit=0 items=1 ppid=2001 pid=2002 auid=1000 uid=1000 tty=pts0 ses=3 comm="echo" exe="/usr/bin/echo" key="argus_exec"
+type=EXECVE msg=audit(1700000001.000:1002): argc=2 a0="echo" a1=3c7363726970743e616c6572742831293c2f7363726970743e
+type=SYSCALL msg=audit(1700000002.000:1003): arch=c000003e syscall=59 success=yes exit=0 items=1 ppid=2001 pid=2003 auid=1000 uid=1000 tty=pts0 ses=3 comm="curl" exe="/usr/bin/curl" key="argus_exec"
+type=EXECVE msg=audit(1700000002.000:1003): argc=2 a0="curl" a1_len=120 a1[0]="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA" a1[1]="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+type=SYSCALL msg=audit(1700000003.000:1004): arch=c000003e syscall=257 success=yes exit=3 items=1 ppid=2001 pid=2004 auid=1000 uid=0 tty=pts0 ses=3 comm="vi" exe="/usr/bin/vi" key="argus_sensitive"
+type=CWD msg=audit(1700000003.000:1004): cwd="/root"
+type=PATH msg=audit(1700000003.000:1004): item=0 name="/etc/passwd" inode=99 dev=08:01 mode=0100644 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL
+type=USER_LOGIN msg=audit(1700000004.000:1005): pid=3000 uid=0 auid=1000 ses=3 msg='op=login id=1000 exe="/usr/sbin/sshd" hostname=203.0.113.5 addr=203.0.113.5 terminal=/dev/pts/0 res=success'
+type=USER_LOGIN msg=audit(1700000005.000:1006): pid=3001 uid=0 auid=4294967295 ses=4294967295 msg='op=login acct="bob" exe="/usr/sbin/sshd" hostname=? addr=198.51.100.9 terminal=ssh res=failed'
+node=web01 type=SYSCALL msg=audit(1700000006.000:1007): arch=c000003e syscall=59 success=yes exit=0 items=1 ppid=1 pid=2005 auid=unset uid=0 tty=(none) ses=unset comm="systemd-tmpfile" exe="/usr/bin/systemd-tmpfiles" key="argus_exec"AUID="unset" UID="root"
+type=SYSCALL msg=audit(1700000007.000:1008): arch=c000003e syscall=59 success=yes exit=0 items=1 ppid=2001 pid=2006 auid=1000 uid=1000 tty=pts0 ses=3 comm="sudo" exe="/usr/bin/sudo" key="argus_execargus_priv"
+type=EXECVE msg=audit(1700000007.000:1008): argc=3 a0="sudo" a1="systemctl" a2="stop"
+type=SYSCALL msg=audit(1700000008.000:1009): arch=c00000b7 syscall=221 success=yes exit=0 items=1 ppid=2001 pid=2007 auid=1000 uid=1000 tty=pts1 ses=5 comm="id" exe="/usr/bin/id" key="argus_exec"
+type=EXECVE msg=audit(1700000008.000:1009): argc=1 a0="id"
+this is not an audit record
+type=DAEMON_START msg=audit(1700000009.000:1010): op=start ver=3.0.9 format=enriched res=success
+type=SYSCALL msg=audit(bogus): arch=c000003e

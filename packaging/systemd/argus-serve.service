@@ -1,0 +1,53 @@
+[Unit]
+Description=Argus 本地只读看板
+Documentation=https://github.com/xaigroking/argus-agent
+After=argus-parse.service
+Wants=argus-parse.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/argus serve
+Restart=always
+RestartSec=5
+
+User=argus
+Group=argus
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+# 看板只读数据库；无需任何可写路径
+ReadOnlyPaths=/var/lib/argus /etc/argus
+
+# 默认只监听 127.0.0.1（见 /etc/argus/config.json），
+# 下面这条确保即使配置被改也无法绑定到外部地址。
+IPAddressDeny=any
+IPAddressAllow=localhost
+
+MemoryMax=256M
+TasksMax=16
+
+[Install]
+WantedBy=multi-user.target

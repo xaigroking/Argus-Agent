@@ -8,16 +8,49 @@ Argus 不问 Agent 做了什么，只看内核记录了什么。Agent 以普通�
 
 ---
 
-## ⚠️ 当前状态：设计阶段，无可用代码
+## 安装
 
-本仓库目前只有设计文档。**不要尝试部署。**
+从 [Releases](https://github.com/xaigroking/argus-agent/releases) 下载对应架构的包：
 
-| 里程碑 | 状态 |
+```sh
+tar xzf argus_v0.1.0_linux_amd64.tar.gz
+cd argus_v0.1.0_linux_amd64
+sha256sum -c ../SHA256SUMS      # 建议核对
+sudo ./install.sh
+```
+
+安装后无需任何配置。前置条件：Linux + systemd + auditd（`apt install auditd` / `dnf install audit`）。
+
+## 使用
+
+```sh
+argus query labels                     # 哪个 Agent 最活跃
+argus query exec --label claude-code   # 该 Agent 执行了什么
+argus query files                      # 受监控文件的访问
+argus query sessions                   # 登录会话
+argus verify                           # 自检
+```
+
+看板：<http://127.0.0.1:8873>（仅本机可访问，远程请用 SSH 隧道）。
+
+进阶配置可选，升级不会覆盖：`/etc/argus/config.json`（保留期、监听地址）、`/etc/argus/agents.json`（要识别的 Agent 列表）。
+
+---
+
+## ⚠️ 当前状态：v0.1.0，未在真实 auditd 环境验证
+
+代码已完成并通过测试，但**尚未在装有 auditd 的真实主机上跑过**：
+
+| 已验证 | 未验证 |
 |---|---|
-| M0 地基（审计规则、auid 打通、日志量实测） | 未开始 |
-| M1 入库 · M2 归因 · M3 看板 · M4 多机 | 未开始 |
+| 解析器（410 万次 fuzz 无崩溃） | 真实 auditd 日志格式的全部变体 |
+| 进程血缘归因（含 pid 复用、父进程退出断链） | 真实负载下的日志量与性能影响 |
+| 端到端：日志 → 入库 → 查询 → 看板 | `pam_loginuid.so` 在各发行版各入口的实际覆盖 |
+| 看板转义（反向验证：换成不转义的模板后测试会失败） | 日志轮转、安装脚本在真实系统上的行为 |
+| 两个架构的静态二进制构建 | auditd 的 `log_group` 权限方案 |
 
-文档中的审计规则与参数均为**未经真实主机验证的草案**，M0 的任务就是验证并修正它们。
+装上后请先跑 `argus verify`，它会检查这些项并给出处置建议。
+遇到问题欢迎提 issue，附上 `argus verify` 的输出。
 
 ---
 
@@ -28,7 +61,7 @@ Argus 不问 Agent 做了什么，只看内核记录了什么。Agent 以普通�
 | [01 · 方案与架构](docs/01-方案与架构.md) | 定位、能力边界、架构、数据模型、安全设计 |
 | [02 · 审计规则与验收](docs/02-审计规则与验收.md) | auditd 规则集、auid 核对清单、量化验收项 |
 | [03 · 里程碑任务表](docs/03-里程碑任务表.md) | M0–M4 任务拆解与出口条件 |
-| [04 · 部署与运维手册](docs/04-部署与运维手册.md) | 部署形态、安装、升级、排障（随开发补全） |
+| [04 · 部署与运维手册](docs/04-部署与运维手册.md) | 部署形态、安装、升级、排障 |
 
 ---
 
@@ -57,6 +90,20 @@ Argus 不问 Agent 做了什么，只看内核记录了什么。Agent 以普通�
 能看到：执行了哪个程序及完整参数、访问了哪些受监控文件、登录会话、提权尝试、进程血缘。
 
 看不到：shell 内置命令（`cd` / `export` 不走 execve）、脚本内部逻辑、访问的域名（属 S1）。
+
+---
+
+## 开发
+
+```sh
+go test ./...                                              # 全部测试
+go test ./internal/auditlog/ -fuzz=FuzzParseLine -fuzztime=60s   # fuzz 解析器
+./scripts/build-release.sh v0.1.0                          # 构建安装包
+argus import --db /tmp/t.db /path/to/audit.log             # 离线导入日志用于调试
+```
+
+解析器处理被监控用户可控的内容，改动它必须附带测试语料并通过 fuzz。
+测试语料在 `testdata/`，欢迎补充真实环境中遇到的日志格式（请脱敏）。
 
 ---
 

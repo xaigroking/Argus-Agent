@@ -1,0 +1,52 @@
+[Unit]
+Description=Argus 审计日志解析与归因
+Documentation=https://github.com/xaigroking/argus-agent
+After=auditd.service
+Wants=auditd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/argus parse
+Restart=always
+RestartSec=5
+
+# 以非特权用户运行：本服务处理被监控用户可控的内容，是主要攻击面。
+User=argus
+Group=argus
+
+# 加固
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0027
+
+# 唯一可写路径
+ReadWritePaths=/var/lib/argus
+ReadOnlyPaths=/var/log/audit /etc/argus
+
+# 资源上限
+MemoryMax=512M
+TasksMax=32
+
+[Install]
+WantedBy=multi-user.target
