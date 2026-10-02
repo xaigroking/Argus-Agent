@@ -23,7 +23,9 @@ if [ -x /usr/local/sbin/argus ]; then
     /usr/local/sbin/argus rules uninstall || say "移除失败，请手动删除 /etc/audit/rules.d/50-argus.rules"
 else
     rm -f /etc/audit/rules.d/50-argus.rules
-    command -v augenrules >/dev/null 2>&1 && augenrules --load || true
+    if command -v augenrules >/dev/null 2>&1; then
+        augenrules --load || say "重新加载规则失败，请手动执行: augenrules --load"
+    fi
 fi
 say "若此前启用过 -e 2（规则锁定），需重启主机才能真正移除规则"
 

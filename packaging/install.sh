@@ -34,7 +34,7 @@ die()  { printf '错误: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || die "需要 root 权限运行"
 
-SRC=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+SRC=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 [ -f "$SRC/argus" ] || die "未找到 $SRC/argus"
 
 # ---- 前置检查 ----
